@@ -59,9 +59,6 @@
     if ([value isKindOfClass:class])
         return value;
 
-    if ([value isKindOfClass:[NSDictionary class]])
-        return [class findOrCreate:value inContext:context];
-
     if ([value isKindOfClass:[NSArray class]] ||
 		[value isKindOfClass:[NSSet class]])
 
@@ -69,7 +66,23 @@
             return [self objectOrSetOfObjectsFromValue:object ofClass:class inContext:context];
         }]];
 
-    return [class findOrCreate:@{ [class primaryKey]: value } inContext:context];
+	if ([class isSubclassOfClass:[NSManagedObject class]])
+	{
+		if ([value isKindOfClass:[NSDictionary class]])
+			return [class findOrCreate:value inContext:context];
+
+		return [class findOrCreate:@{ [class primaryKey]: value } inContext:context];
+	}
+	else if ([class respondsToSelector:@selector(valueTransformer)])
+	{
+		NSValueTransformer* transformer = [class performSelector:@selector(valueTransformer)];
+		
+		id object = [transformer transformedValue:value];
+		
+		return object;
+	}
+	
+	return nil;
 }
 
 + (NSMutableDictionary *)cachedMappings {
