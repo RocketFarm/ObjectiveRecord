@@ -46,40 +46,50 @@
 }
 
 + (id)transformValue:(id)value forRemoteKey:(NSString *)remoteKey inContext:(NSManagedObjectContext *)context {
+
+	NSValueTransformer* transformer = [self cachedMappings][remoteKey][@"transformer"];
     Class class = [self cachedMappings][remoteKey][@"class"];
-    if (class)
-        return [self objectOrSetOfObjectsFromValue:value ofClass:class inContext:context];
+	
+	if (!class)
+		class = [[transformer class] transformedValueClass];
+	
+    if (class || transformer)
+        return [self objectOrSetOfObjectsFromValue:value ofClass:class withTransformer:transformer inContext:context];
 
     return value;
 }
 
 #pragma mark - Private
 
-+ (id)objectOrSetOfObjectsFromValue:(id)value ofClass:class inContext:(NSManagedObjectContext *)context {
++ (id)objectOrSetOfObjectsFromValue:(id)value ofClass:class withTransformer:(NSValueTransformer*)transformer inContext:(NSManagedObjectContext *)context {
     if ([value isKindOfClass:class])
         return value;
 
+//    if ([value isKindOfClass:[NSOrderedSet class]])
+//	{
+//        return [NSOrderedSet orderedSetWithArray:[value map:^id(id object) {
+//            return [self objectOrSetOfObjectsFromValue:object ofClass:class withTransformer:transformer inContext:context];
+//        }]];
+//	}
+//	else
     if ([value isKindOfClass:[NSArray class]] ||
 		[value isKindOfClass:[NSSet class]])
-
+	{
         return [NSSet setWithArray:[value map:^id(id object) {
-            return [self objectOrSetOfObjectsFromValue:object ofClass:class inContext:context];
+            return [self objectOrSetOfObjectsFromValue:object ofClass:class withTransformer:transformer inContext:context];
         }]];
-
-	if ([class isSubclassOfClass:[NSManagedObject class]])
+	}
+	
+	if (transformer)
+	{
+		return [transformer transformedValue:value];
+	}
+	else if ([class isSubclassOfClass:[NSManagedObject class]])
 	{
 		if ([value isKindOfClass:[NSDictionary class]])
 			return [class findOrCreate:value inContext:context];
 
 		return [class findOrCreate:@{ [class primaryKey]: value } inContext:context];
-	}
-	else if ([class respondsToSelector:@selector(valueTransformer)])
-	{
-		NSValueTransformer* transformer = [class performSelector:@selector(valueTransformer)];
-		
-		id object = [transformer transformedValue:value];
-		
-		return object;
 	}
 	
 	return nil;

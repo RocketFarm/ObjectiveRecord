@@ -224,7 +224,8 @@
                 if ([localValue isEqual:value] || (localValue == nil && value == [NSNull null]))
                     continue;
             }
-            transformed[localKey] = value;
+//          transformed[localKey] = value; 
+			[transformed setValue:value forKey:localKey];
         } else {
 #if DEBUG
             NSLog(@"Discarding key ('%@') from properties on class ('%@'): no attribute or relationship found",
